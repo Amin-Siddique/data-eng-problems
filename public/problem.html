@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix the Skewed Join - DataEngineer.io</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-editor: #0d1117;
+            --text-primary: #f0f0f5;
+            --text-secondary: #888;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #2a2a35;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Nav */
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .logo span { color: var(--accent); }
+
+        .problem-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .problem-nav button {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .problem-nav button:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .problem-title-nav {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .timer {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .run-btn, .submit-btn {
+            padding: 0.5rem 1.25rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .run-btn {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .run-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .submit-btn {
+            background: var(--success);
+            color: white;
+        }
+
+        .submit-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Main layout */
+        .workspace {
+            display: flex;
+            height: calc(100vh - 53px);
+        }
+
+        /* Problem panel */
+        .problem-panel {
+            width: 45%;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-tab {
+            padding: 0.75rem 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .panel-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .panel-tab.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent);
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .problem-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .problem-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .problem-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .difficulty-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .difficulty-badge.medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .company-badge {
+            padding: 0.25rem 0.75rem;
+            background: var(--bg-card);
+            border-radius: 50px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .problem-section {
+            margin-bottom: 2rem;
+        }
+
+        .problem-section h3 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .problem-section p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .code-block {
+            background: var(--bg-editor);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .code-block .keyword { color: #ff79c6; }
+        .code-block .function { color: #50fa7b; }
+        .code-block .string { color: #f1fa8c; }
+        .code-block .comment { color: #6272a4; }
+
+        .hint-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            width: 100%;
+            text-align: left;
+        }
+
+        .hint-toggle:hover {
+            border-color: var(--accent);
+        }
+
+        .hint-content {
+            display: none;
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .hint-content.show {
+            display: block;
+        }
+
+        /* Editor panel */
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .language-select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .editor-actions button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.4rem;
+            border-radius: 4px;
+        }
+
+        .editor-actions button:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .code-editor {
+            flex: 1;
+            background: var(--bg-editor);
+            position: relative;
+        }
+
+        .code-editor textarea {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 1rem;
+            resize: none;
+            outline: none;
+            line-height: 1.6;
+        }
+
+        /* Results panel */
+        .results-panel {
+            border-top: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+
+        .results-header {
+            display: flex;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .results-tab {
+            padding: 0.6rem 1rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
+        }
+
+        .results-tab.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent);
+        }
+
+        .results-content {
+            height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .result-success {
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .result-error {
+            color: var(--error);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .result-table th, .result-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+
+        .result-table th {
+            background: var(--bg-card);
+            font-weight: 600;
+        }
+
+        .execution-stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .execution-stats span {
+            color: var(--text-primary);
+        }
+
+        /* Resize handle */
+        .resize-handle {
+            width: 4px;
+            background: var(--border);
+            cursor: col-resize;
+            transition: background 0.2s;
+        }
+
+        .resize-handle:hover {
+            background: var(--accent);
+        }
+
+        /* Discussion tab */
+        .discussion-item {
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .discussion-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .discussion-author {
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .discussion-time {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .discussion-content {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .discussion-stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-left">
+            <a href="/" class="logo">DE<span>.io</span></a>
+            <div class="problem-nav">
+                <button>&larr;</button>
+                <span class="problem-title-nav">001 / 50</span>
+                <button>&rarr;</button>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="timer">00:15:32</span>
+            <button class="run-btn">Run Code</button>
+            <button class="submit-btn">Submit</button>
+        </div>
+    </nav>
+
+    <div class="workspace">
+        <div class="problem-panel">
+            <div class="panel-tabs">
+                <div class="panel-tab active" data-tab="description">Description</div>
+                <div class="panel-tab" data-tab="solution">Solution</div>
+                <div class="panel-tab" data-tab="discuss">Discuss (24)</div>
+            </div>
+
+            <div class="panel-content" id="description-content">
+                <div class="problem-header">
+                    <h1>001. Fix the Skewed Join</h1>
+                    <div class="problem-meta">
+                        <span class="difficulty-badge medium">Medium</span>
+                        <span class="company-badge">Meta</span>
+                        <span class="company-badge">Netflix</span>
+                        <span class="company-badge">Uber</span>
+                    </div>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Problem Statement</h3>
+                    <p>You have two tables with a heavily skewed join key. The top 1% of customers account for 50% of all orders, causing extreme executor skew during joins.</p>
+                    <p style="margin-top: 1rem;">The following query times out due to data skew:</p>
+
+                    <div class="code-block">
+<span class="keyword">SELECT</span>
+    c.customer_name,
+    c.segment,
+    <span class="function">COUNT</span>(*) <span class="keyword">as</span> order_count,
+    <span class="function">SUM</span>(o.amount) <span class="keyword">as</span> total_spent
+<span class="keyword">FROM</span> orders o
+<span class="keyword">JOIN</span> customers c <span class="keyword">ON</span> o.customer_id = c.customer_id
+<span class="keyword">GROUP BY</span> c.customer_name, c.segment;
+                    </div>
+
+                    <p><strong>Your task:</strong> Rewrite the query to handle the skew efficiently. The result must match the expected output exactly.</p>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Tables</h3>
+                    <div class="code-block">
+<span class="comment">-- orders: 100M rows, skewed on customer_id</span>
+<span class="comment">-- Top 10 customers have 50M orders</span>
+orders (
+    order_id <span class="keyword">STRING</span>,
+    customer_id <span class="keyword">BIGINT</span>,
+    amount <span class="keyword">DOUBLE</span>,
+    order_date <span class="keyword">DATE</span>
+)
+
+<span class="comment">-- customers: 1M rows, evenly distributed</span>
+customers (
+    customer_id <span class="keyword">BIGINT</span>,
+    customer_name <span class="keyword">STRING</span>,
+    segment <span class="keyword">STRING</span>
+)
+                    </div>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Constraints</h3>
+                    <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+                        <li>Solution must complete in under 30 seconds</li>
+                        <li>Cannot modify underlying table structure</li>
+                        <li>Result must match expected output exactly</li>
+                    </ul>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Hints</h3>
+                    <button class="hint-toggle" onclick="toggleHint(1)">
+                        <span>&#128161;</span> Hint 1: Identify the problem
+                    </button>
+                    <div class="hint-content" id="hint-1">
+                        <p>The issue is that a few customer_ids have millions of rows. When Spark shuffles data for the join, these heavy keys all land on the same executor, causing it to run out of memory or take forever.</p>
+                    </div>
+
+                    <button class="hint-toggle" onclick="toggleHint(2)">
+                        <span>&#128161;</span> Hint 2: Consider the small table
+                    </button>
+                    <div class="hint-content" id="hint-2">
+                        <p>The customers table is only 1M rows. Could you avoid the shuffle entirely by broadcasting it?</p>
+                    </div>
+
+                    <button class="hint-toggle" onclick="toggleHint(3)">
+                        <span>&#128161;</span> Hint 3: Salting technique
+                    </button>
+                    <div class="hint-content" id="hint-3">
+                        <p>For extreme skew, you can "salt" the join key - add a random suffix to distribute heavy keys across multiple partitions. You'll need to "explode" the smaller table to match.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-content" id="solution-content" style="display: none;">
+                <div class="problem-section">
+                    <h3>Approach 1: Broadcast Join</h3>
+                    <p>If the small table fits in memory, broadcast it to avoid shuffle entirely.</p>
+                    <div class="code-block">
+<span class="keyword">SELECT</span> <span class="comment">/*+ BROADCAST(c) */</span>
+    c.customer_name,
+    c.segment,
+    <span class="function">COUNT</span>(*) <span class="keyword">as</span> order_count,
+    <span class="function">SUM</span>(o.amount) <span class="keyword">as</span> total_spent
+<span class="keyword">FROM</span> orders o
+<span class="keyword">JOIN</span> customers c <span class="keyword">ON</span> o.customer_id = c.customer_id
+<span class="keyword">GROUP BY</span> c.customer_name, c.segment;
+                    </div>
+                    <p><strong>When to use:</strong> Small table &lt; 10GB (configurable via spark.sql.autoBroadcastJoinThreshold)</p>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Approach 2: Salting</h3>
+                    <p>For extreme skew where broadcast won't work, distribute heavy keys across partitions.</p>
+                    <div class="code-block">
+<span class="keyword">WITH</span> salted_orders <span class="keyword">AS</span> (
+    <span class="keyword">SELECT</span> *,
+        <span class="function">CONCAT</span>(customer_id, <span class="string">'_'</span>, <span class="function">FLOOR</span>(<span class="function">RAND</span>() * 10)) <span class="keyword">as</span> salted_key
+    <span class="keyword">FROM</span> orders
+),
+exploded_customers <span class="keyword">AS</span> (
+    <span class="keyword">SELECT</span> c.*,
+        <span class="function">CONCAT</span>(c.customer_id, <span class="string">'_'</span>, salt.n) <span class="keyword">as</span> salted_key
+    <span class="keyword">FROM</span> customers c
+    <span class="keyword">CROSS JOIN</span> (<span class="keyword">SELECT</span> <span class="function">explode</span>(<span class="function">sequence</span>(0, 9)) <span class="keyword">as</span> n) salt
+)
+<span class="keyword">SELECT</span>
+    c.customer_name,
+    c.segment,
+    <span class="function">COUNT</span>(*) <span class="keyword">as</span> order_count,
+    <span class="function">SUM</span>(o.amount) <span class="keyword">as</span> total_spent
+<span class="keyword">FROM</span> salted_orders o
+<span class="keyword">JOIN</span> exploded_customers c <span class="keyword">ON</span> o.salted_key = c.salted_key
+<span class="keyword">GROUP BY</span> c.customer_name, c.segment;
+                    </div>
+                </div>
+
+                <div class="problem-section">
+                    <h3>Approach 3: Adaptive Query Execution</h3>
+                    <p>Let Spark handle it automatically (Spark 3.0+).</p>
+                    <div class="code-block">
+<span class="keyword">SET</span> spark.sql.adaptive.enabled = <span class="keyword">true</span>;
+<span class="keyword">SET</span> spark.sql.adaptive.skewJoin.enabled = <span class="keyword">true</span>;
+
+<span class="comment">-- Original query now works</span>
+<span class="keyword">SELECT</span> ...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-content" id="discuss-content" style="display: none;">
+                <div class="discussion-item">
+                    <div class="discussion-header">
+                        <span class="discussion-author">@spark_master</span>
+                        <span class="discussion-time">2 days ago</span>
+                    </div>
+                    <div class="discussion-content">
+                        The broadcast hint is the cleanest solution for this problem size. In my experience at Netflix, we use this for any dimension table under 1GB.
+                    </div>
+                    <div class="discussion-stats">
+                        <span>&#9650; 42</span>
+                        <span>&#128172; 5 replies</span>
+                    </div>
+                </div>
+
+                <div class="discussion-item">
+                    <div class="discussion-header">
+                        <span class="discussion-author">@data_ninja</span>
+                        <span class="discussion-time">1 week ago</span>
+                    </div>
+                    <div class="discussion-content">
+                        Don't forget AQE! In Databricks, it's enabled by default and handles most skew cases automatically. Only use salting for extreme cases.
+                    </div>
+                    <div class="discussion-stats">
+                        <span>&#9650; 28</span>
+                        <span>&#128172; 3 replies</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="resize-handle"></div>
+
+        <div class="editor-panel">
+            <div class="editor-header">
+                <select class="language-select">
+                    <option>SQL</option>
+                    <option>PySpark</option>
+                    <option>Scala Spark</option>
+                </select>
+                <div class="editor-actions">
+                    <button title="Reset">&#8634;</button>
+                    <button title="Format">&#9783;</button>
+                    <button title="Settings">&#9881;</button>
+                </div>
+            </div>
+
+            <div class="code-editor">
+                <textarea id="code" spellcheck="false">-- Write your solution here
+SELECT
+    c.customer_name,
+    c.segment,
+    COUNT(*) as order_count,
+    SUM(o.amount) as total_spent
+FROM interview.skew.orders o
+JOIN interview.skew.customers c
+    ON o.customer_id = c.customer_id
+GROUP BY c.customer_name, c.segment;
+</textarea>
+            </div>
+
+            <div class="results-panel">
+                <div class="results-header">
+                    <div class="results-tab active">Output</div>
+                    <div class="results-tab">Expected</div>
+                    <div class="results-tab">Execution Plan</div>
+                </div>
+                <div class="results-content">
+                    <div class="result-success">
+                        <span style="font-size: 1.5rem;">&#10003;</span>
+                        <span>Accepted - Runtime: 2.4s</span>
+                    </div>
+
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th>customer_name</th>
+                                <th>segment</th>
+                                <th>order_count</th>
+                                <th>total_spent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Customer 1</td>
+                                <td>Gold</td>
+                                <td>5,234</td>
+                                <td>$2,456,789.00</td>
+                            </tr>
+                            <tr>
+                                <td>Customer 2</td>
+                                <td>Silver</td>
+                                <td>4,892</td>
+                                <td>$1,987,654.00</td>
+                            </tr>
+                            <tr>
+                                <td>Customer 3</td>
+                                <td>Bronze</td>
+                                <td>3,456</td>
+                                <td>$987,654.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="execution-stats">
+                        <div>Runtime: <span>2.4s</span></div>
+                        <div>Rows Scanned: <span>100,000</span></div>
+                        <div>Shuffle: <span>12 MB</span></div>
+                        <div>Memory: <span>256 MB</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.panel-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                const tabName = tab.dataset.tab;
+                document.querySelectorAll('.panel-content').forEach(c => c.style.display = 'none');
+                document.getElementById(`${tabName}-content`).style.display = 'block';
+            });
+        });
+
+        // Hint toggle
+        function toggleHint(num) {
+            const hint = document.getElementById(`hint-${num}`);
+            hint.classList.toggle('show');
+        }
+
+        // Timer
+        let seconds = 932; // 15:32
+        setInterval(() => {
+            seconds++;
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            document.querySelector('.timer').textContent =
+                `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }, 1000);
+    </script>
+</body>
+</html>
