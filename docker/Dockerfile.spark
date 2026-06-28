@@ -1,0 +1,35 @@
+FROM apache/spark:3.5.1-scala2.12-java17-python3-ubuntu
+
+USER root
+
+# Install Delta Lake and other dependencies
+RUN pip install --no-cache-dir \
+    delta-spark==3.1.0 \
+    pyspark==3.5.1 \
+    pandas \
+    pyarrow
+
+# Download Delta Lake JARs
+ENV DELTA_VERSION=3.1.0
+ENV SCALA_VERSION=2.12
+
+RUN curl -L -o /opt/spark/jars/delta-spark_${SCALA_VERSION}-${DELTA_VERSION}.jar \
+    https://repo1.maven.org/maven2/io/delta/delta-spark_${SCALA_VERSION}/${DELTA_VERSION}/delta-spark_${SCALA_VERSION}-${DELTA_VERSION}.jar && \
+    curl -L -o /opt/spark/jars/delta-storage-${DELTA_VERSION}.jar \
+    https://repo1.maven.org/maven2/io/delta/delta-storage/${DELTA_VERSION}/delta-storage-${DELTA_VERSION}.jar
+
+# Spark configuration for Delta Lake
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# Create directories
+RUN mkdir -p /opt/spark/warehouse /opt/spark/metastore /opt/spark/problems
+
+# Copy startup script
+COPY start-spark.sh /opt/spark/start-spark.sh
+RUN chmod +x /opt/spark/start-spark.sh
+
+WORKDIR /opt/spark
+
+EXPOSE 4040 10000 15002
+
+CMD ["/opt/spark/start-spark.sh"]

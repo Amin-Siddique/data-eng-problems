@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  spark:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.spark
+    container_name: lakehouse-spark
+    ports:
+      - "4040:4040"   # Spark UI
+      - "10000:10000" # Thrift server (dbt/JDBC)
+      - "15002:15002" # Spark Connect
+    volumes:
+      - spark-warehouse:/opt/spark/warehouse
+      - spark-metastore:/opt/spark/metastore
+      - ./problems:/opt/spark/problems:ro
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4040"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  sql-editor:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.ui
+    container_name: lakehouse-ui
+    ports:
+      - "8888:8888"
+    environment:
+      - SPARK_HOST=spark
+      - SPARK_PORT=15002
+    depends_on:
+      spark:
+        condition: service_healthy
+
+  jupyter:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.jupyter
+    container_name: lakehouse-jupyter
+    ports:
+      - "8889:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - spark-warehouse:/home/jovyan/warehouse:ro
+    environment:
+      - SPARK_HOST=spark
+      - SPARK_PORT=15002
+    depends_on:
+      spark:
+        condition: service_healthy
+
+  catalog:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.catalog
+    container_name: lakehouse-catalog
+    ports:
+      - "8080:8080"
+    volumes:
+      - catalog-data:/opt/catalog/data
+    environment:
+      - SPARK_HOST=spark
+
+  # Data loader - runs once to load sample data
+  data-loader:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.loader
+    container_name: lakehouse-loader
+    volumes:
+      - spark-warehouse:/opt/spark/warehouse
+    depends_on:
+      spark:
+        condition: service_healthy
+    profiles:
+      - setup
+
+  # Interview problems loader
+  interview-loader:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.interview
+    container_name: lakehouse-interview
+    volumes:
+      - spark-warehouse:/opt/spark/warehouse
+      - ./problems:/opt/problems:ro
+    depends_on:
+      spark:
+        condition: service_healthy
+    profiles:
+      - interview
+
+volumes:
+  spark-warehouse:
+  spark-metastore:
+  catalog-data:
+
+networks:
+  default:
+    name: lakehouse-network

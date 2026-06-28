@@ -25,7 +25,7 @@ This repo lets you practice all of that with real Spark execution.
 ## Features
 
 - **50+ Problems** covering Spark, SQL, dbt, and pipeline design
-- **Real Execution** - Your code runs on actual Spark via [lakehouse-local](https://github.com/Amin-Siddique/lakehouse-local)
+- **Real Execution** - Run problems locally with included Docker setup
 - **Company Tags** - Know which companies ask which types of problems
 - **Difficulty Levels** - Easy, Medium, Hard, Expert
 - **Detailed Solutions** - Multiple approaches with trade-off analysis
@@ -43,17 +43,16 @@ This repo lets you practice all of that with real Spark execution.
 
 ## Quick Start
 
+**Option 1: Just read the problems** (no setup needed)
+- Browse the [problems/](problems/) folder
+- Each problem has setup, hints, and detailed solutions
+
+**Option 2: Practice with real Spark** (requires Docker)
 ```bash
-# Clone the repo
 git clone https://github.com/Amin-Siddique/data-eng-problems.git
 cd data-eng-problems
-
-# Start local Spark environment (requires Docker)
-git clone https://github.com/Amin-Siddique/lakehouse-local.git
-cd lakehouse-local
 docker compose up -d
-
-# Open http://localhost:8888 and start practicing!
+# Open http://localhost:8888
 ```
 
 ## Sample Problem
